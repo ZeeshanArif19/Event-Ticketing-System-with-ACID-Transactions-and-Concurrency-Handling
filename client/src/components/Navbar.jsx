@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Heart, User, LogOut, Ticket, Moon, Sun, ChevronDown, Music, Trophy, Laugh, Laptop, Baby, Theater } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../components/ThemeProvider';
 import { getWishlist } from '../utils/localStorage';
 import axios from 'axios';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 
 // Icon mapping for categories from database
 const iconMap = {
@@ -22,6 +15,55 @@ const iconMap = {
     'Baby': Baby,
     'Theater': Theater
 };
+
+// Simple custom dropdown component
+const Dropdown = ({ trigger, children, align = 'right' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [isOpen]);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <div onClick={() => setIsOpen(!isOpen)}>
+                {trigger}
+            </div>
+            {isOpen && (
+                <div
+                    className={`absolute top-full mt-2 ${align === 'right' ? 'right-0' : 'left-0'} z-[9999] min-w-[200px] rounded-xl border border-border bg-popover p-2 shadow-xl animate-in fade-in-0 zoom-in-95`}
+                    onClick={() => setIsOpen(false)}
+                >
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const DropdownItem = ({ onClick, children, className = '', destructive = false }) => (
+    <button
+        onClick={onClick}
+        className={`w-full flex items-center px-3 py-2 text-sm rounded-lg transition-colors hover:bg-accent ${destructive ? 'text-destructive hover:text-destructive' : ''} ${className}`}
+    >
+        {children}
+    </button>
+);
 
 const Navbar = () => {
     const { isAuthenticated, user, logout } = useAuth();
@@ -100,34 +142,36 @@ const Navbar = () => {
                     {/* Right Side Actions */}
                     <div className="flex items-center gap-2 md:gap-3">
                         {/* Categories Dropdown */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                        <Dropdown
+                            align="right"
+                            trigger={
                                 <button className="flex items-center gap-1 px-4 py-2 rounded-full hover:bg-accent/50 transition-all duration-300 text-sm font-medium border border-transparent hover:border-border/50">
                                     <span className="hidden md:inline">Categories</span>
                                     <ChevronDown className="w-4 h-4" />
                                 </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-64 p-2 glass-card border-white/10">
+                            }
+                        >
+                            <div className="w-64">
                                 {categories.map((category) => {
                                     const Icon = iconMap[category.icon] || Theater;
                                     return (
-                                        <DropdownMenuItem
+                                        <DropdownItem
                                             key={category.id}
                                             onClick={() => navigate(`/category/${category.id}`)}
-                                            className="cursor-pointer rounded-lg p-3 hover:bg-primary/10 focus:bg-primary/10 transition-colors mb-1 last:mb-0"
+                                            className="p-3 mb-1"
                                         >
                                             <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${category.color} flex items-center justify-center mr-4 shadow-md`}>
                                                 <Icon className="w-5 h-5 text-white" />
                                             </div>
-                                            <div>
+                                            <div className="text-left">
                                                 <p className="font-semibold text-foreground">{category.name}</p>
                                                 <p className="text-xs text-muted-foreground">{category.description}</p>
                                             </div>
-                                        </DropdownMenuItem>
+                                        </DropdownItem>
                                     );
                                 })}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            </div>
+                        </Dropdown>
 
                         {/* Wishlist Button */}
                         <button
@@ -158,35 +202,37 @@ const Navbar = () => {
 
                         {/* User Menu */}
                         {isAuthenticated ? (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                            <Dropdown
+                                align="right"
+                                trigger={
                                     <button className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full hover:bg-accent/50 transition-all duration-300 border border-transparent hover:border-border/50">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
                                             <User className="w-4 h-4" />
                                         </div>
                                         <span className="hidden md:inline text-sm font-semibold">{user?.name || 'User'}</span>
                                     </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56 glass-card border-white/10 p-2">
+                                }
+                            >
+                                <div className="w-56">
                                     <div className="px-3 py-2 bg-muted/30 rounded-lg mb-2">
                                         <p className="text-sm font-bold text-foreground">{user?.name || 'User'}</p>
                                         <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
                                     </div>
-                                    <DropdownMenuItem onClick={() => navigate('/dashboard')} className="rounded-lg cursor-pointer">
+                                    <DropdownItem onClick={() => navigate('/dashboard')}>
                                         <User className="w-4 h-4 mr-2" />
                                         My Bookings
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => navigate('/dashboard?tab=wishlist')} className="rounded-lg cursor-pointer">
+                                    </DropdownItem>
+                                    <DropdownItem onClick={() => navigate('/dashboard?tab=wishlist')}>
                                         <Heart className="w-4 h-4 mr-2" />
                                         Wishlist
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="bg-border/50" />
-                                    <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive rounded-lg cursor-pointer">
+                                    </DropdownItem>
+                                    <div className="my-1 h-px bg-border/50" />
+                                    <DropdownItem onClick={handleLogout} destructive>
                                         <LogOut className="w-4 h-4 mr-2" />
                                         Logout
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                    </DropdownItem>
+                                </div>
+                            </Dropdown>
                         ) : (
                             <Link
                                 to="/login"
