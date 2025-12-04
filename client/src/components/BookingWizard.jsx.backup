@@ -1,0 +1,476 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Confetti from 'react-canvas-confetti/dist/presets/fireworks';
+import { QRCodeSVG } from 'react-qr-code';
+import { useBookSeat } from '../hooks/useBookings';
+import { useToast } from '../hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { Card, CardContent } from '../ui/card';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Separator } from '../ui/separator';
+import {
+    ChevronLeft,
+    ChevronRight,
+    CreditCard,
+    CheckCircle2,
+    Calendar,
+    MapPin,
+    Users,
+    IndianRupee
+} from 'lucide-react';
+
+const BookingWizard = ({
+    isOpen,
+    onClose,
+    event,
+    selectedSeats = [],
+    onBookingComplete
+}) => {
+    const [step, setStep] = useState(1);
+    const [bookingData, setBookingData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        cardNumber: '',
+        cvv: '',
+        expiry: ''
+    });
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [bookingResult, setBookingResult] = useState(null);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const [bookedSeatIds, setBookedSeatIds] = useState([]);
+    const navigate = useNavigate();
+    const bookSeatMutation = useBookSeat();
+    const { toast } = useToast();
+
+    const getSeatPrice = (seatNumber) => {
+        const row = seatNumber.match(/[A-Z]+/)?.[0] || '';
+        const rowIndex = row.charCodeAt(0) - 65;
+
+        if (rowIndex < 2) return 999; // VIP
+        if (rowIndex < 5) return 749; // Premium
+        if (rowIndex < 10) return 499; // Regular
+        return 299; // Balcony
+    };
+
+    const calculateTotal = () => {
+        const subtotal = selectedSeats.reduce((sum, seat) =>
+            sum + getSeatPrice(seat.seat_number), 0
+        );
+        const tax = subtotal * 0.18; // 18% GST
+        const bookingFee = selectedSeats.length * 50;
+        return {
+            subtotal,
+            tax,
+            bookingFee,
+            total: subtotal + tax + bookingFee
+        };
+    };
+
+    const pricing = calculateTotal();
+
+    const handleNext = () => {
+        if (step < 3) setStep(step + 1);
+    };
+
+    const handleBack = () => {
+        if (step > 1) setStep(step - 1);
+    };
+
+    const handlePayment = async () => {
+        setIsProcessing(true);
+
+        // Simulate payment processing delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Actually book the seats via API
+        try {
+            const bookingResults = [];
+            const errors = [];
+
+            // Book each seat
+            for (const seat of selectedSeats) {
+                try {
+                    const result = await bookSeatMutation.mutateAsync({
+                        seatId: seat.id,
+                        eventId: event.id,
+                        mode: 'pessimistic'
+                    });
+                    bookingResults.push({
+                        seatId: seat.id,
+                        seatNumber: seat.seat_number,
+                        bookingId: result.booking?.id || result.id,
+                        success: true
+                    });
+                } catch (error) {
+                    errors.push({
+                        seatNumber: seat.seat_number,
+                        error: error.response?.data?.error || error.message
+                    });
+                }
+            }
+
+            if (errors.length > 0) {
+                // Some seats failed to book
+                const errorMessage = `Failed to book seats: ${errors.map(e => e.seatNumber).join(', ')}. ${errors[0].error}`;
+                setBookingResult({
+                    success: false,
+                    error: errorMessage,
+                    partialSuccess: bookingResults.length > 0,
+                    bookedSeats: bookingResults
+                });
+
+                // Show error or warning toast based on partial success
+                if (bookingResults.length > 0) {
+                    toast({
+                        variant: 'warning',
+                        title: 'Partial Booking Success',
+                        description: `${bookingResults.length} seat(s) booked, but ${errors.length} failed. ${errors[0].error}`,
+                    });
+                } else {
+                    toast({
+                        variant: 'destructive',
+
+                        // Call the completion handler
+                        if(onBookingComplete) {
+                            onBookingComplete({
+                                bookingIds: bookingIds,
+                                seats: selectedSeats
+                            });
+                        }
+                    }
+        } catch (error) {
+                    const errorMessage = error.response?.data?.error || 'Payment failed. Please try again.';
+                    setBookingResult({
+                        success: false,
+                        error: errorMessage
+                    });
+
+                    // Show error toast
+                    toast({
+                        variant: 'destructive',
+                        title: 'Payment Failed',
+                        description: errorMessage,
+                    });
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            const handleClose = () => {
+                setStep(1);
+                setBookingData({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    cardNumber: '',
+                    cvv: '',
+                    expiry: ''
+                });
+                setBookingResult(null);
+                setShowConfetti(false);
+                onClose();
+            };
+
+            const handleViewBookings = () => {
+                handleClose();
+                navigate('/dashboard');
+            };
+
+            const formatDate = (dateString) => {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
+            };
+
+            return (
+                <>
+                    {showConfetti && <Confetti autorun={{ speed: 3, duration: 3000 }} />}
+
+                    <Dialog open={isOpen} onOpenChange={handleClose}>
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl">
+                                    {step === 1 && 'Review Your Selection'}
+                                    {step === 2 && 'Payment Details'}
+                                    {step === 3 && 'Booking Confirmed! 🎉'}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {step === 1 && 'Review your seats before proceeding to payment'}
+                                    {step === 2 && 'Enter your payment information to complete booking'}
+                                    {step === 3 && 'Your tickets have been confirmed'}
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            {/* Progress Indicator */}
+                            <div className="flex items-center justify-center gap-2 mb-6">
+                                {[1, 2, 3].map((s) => (
+                                    <div key={s} className="flex items-center">
+                                        <div className={`
+                                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold
+                                    ${step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}
+                                `}>
+                                            {s}
+                                        </div>
+                                        {s < 3 && (
+                                            <div className={`w-12 h-0.5 ${step > s ? 'bg-primary' : 'bg-muted'}`} />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Step 1: Review Selection */}
+                            {step === 1 && (
+                                <div className="space-y-6">
+                                    {/* Event Info */}
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <h3 className="font-semibold text-lg mb-3">{event?.name}</h3>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex items-center text-muted-foreground">
+                                                    <Calendar className="h-4 w-4 mr-2" />
+                                                    {formatDate(event?.event_date)}
+                                                </div>
+                                                <div className="flex items-center text-muted-foreground">
+                                                    <MapPin className="h-4 w-4 mr-2" />
+                                                    {event?.venue}
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Selected Seats */}
+                                    <div>
+                                        <h4 className="font-semibold mb-3">Selected Seats ({selectedSeats.length})</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {selectedSeats.map((seat) => (
+                                                <div key={seat.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                                                    <div className="flex items-center gap-2">
+                                                        <Users className="h-4 w-4 text-muted-foreground" />
+                                                        <span className="font-medium">{seat.seat_number}</span>
+                                                    </div>
+                                                    <span className="text-sm font-semibold">₹{getSeatPrice(seat.seat_number)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Price Breakdown */}
+                                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                                        <div className="flex justify-between text-sm">
+                                            <span>Subtotal</span>
+                                            <span>₹{pricing.subtotal.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>GST (18%)</span>
+                                            <span>₹{pricing.tax.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>Booking Fee</span>
+                                            <span>₹{pricing.bookingFee.toFixed(2)}</span>
+                                        </div>
+                                        <Separator />
+                                        <div className="flex justify-between text-lg font-bold">
+                                            <span>Total</span>
+                                            <span>₹{pricing.total.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Step 2: Payment */}
+                            {step === 2 && (
+                                <div className="space-y-6">
+                                    {/* Contact Info */}
+                                    <div className="space-y-4">
+                                        <h4 className="font-semibold">Contact Information</h4>
+                                        <div className="grid gap-4">
+                                            <div>
+                                                <Label htmlFor="name">Full Name</Label>
+                                                <Input
+                                                    id="name"
+                                                    value={bookingData.name}
+                                                    onChange={(e) => setBookingData({ ...bookingData, name: e.target.value })}
+                                                    placeholder="John Doe"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="email">Email</Label>
+                                                <Input
+                                                    id="email"
+                                                    type="email"
+                                                    value={bookingData.email}
+                                                    onChange={(e) => setBookingData({ ...bookingData, email: e.target.value })}
+                                                    placeholder="john@example.com"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="phone">Phone</Label>
+                                                <Input
+                                                    id="phone"
+                                                    value={bookingData.phone}
+                                                    onChange={(e) => setBookingData({ ...bookingData, phone: e.target.value })}
+                                                    placeholder="+91 98765 43210"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Payment Info */}
+                                    <div className="space-y-4">
+                                        <h4 className="font-semibold flex items-center gap-2">
+                                            <CreditCard className="h-5 w-5" />
+                                            Payment Information
+                                        </h4>
+                                        <div className="grid gap-4">
+                                            <div>
+                                                <Label htmlFor="cardNumber">Card Number</Label>
+                                                <Input
+                                                    id="cardNumber"
+                                                    value={bookingData.cardNumber}
+                                                    onChange={(e) => setBookingData({ ...bookingData, cardNumber: e.target.value })}
+                                                    placeholder="1234 5678 9012 3456"
+                                                    maxLength={19}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <Label htmlFor="expiry">Expiry Date</Label>
+                                                    <Input
+                                                        id="expiry"
+                                                        value={bookingData.expiry}
+                                                        onChange={(e) => setBookingData({ ...bookingData, expiry: e.target.value })}
+                                                        placeholder="MM/YY"
+                                                        maxLength={5}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label htmlFor="cvv">CVV</Label>
+                                                    <Input
+                                                        id="cvv"
+                                                        type="password"
+                                                        value={bookingData.cvv}
+                                                        onChange={(e) => setBookingData({ ...bookingData, cvv: e.target.value })}
+                                                        placeholder="123"
+                                                        maxLength={3}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Total */}
+                                    <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg">
+                                        <span className="font-semibold">Total Amount</span>
+                                        <span className="text-2xl font-bold text-primary">₹{pricing.total.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Step 3: Confirmation */}
+                            {step === 3 && bookingResult?.success && (
+                                <div className="space-y-6 text-center">
+                                    <div className="inline-block p-4 bg-green-500/10 rounded-full">
+                                        <CheckCircle2 className="h-16 w-16 text-green-500" />
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-2xl font-bold mb-2">Booking Successful!</h3>
+                                        <p className="text-muted-foreground">
+                                            Your tickets have been confirmed. Check your email for details.
+                                        </p>
+                                    </div>
+
+                                    <Card>
+                                        <CardContent className="p-6 space-y-4">
+                                            <div className="flex justify-center">
+                                                <QRCodeSVG
+                                                    value={`BOOKING-${bookingResult.bookingId}`}
+                                                    size={200}
+                                                    level="H"
+                                                    className="border-4 border-muted p-4 rounded-lg bg-white"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">Booking ID</span>
+                                                    <span className="font-semibold">#{bookingResult.bookingId}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">Seats</span>
+                                                    <span className="font-semibold">{bookingResult.seats}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">Total Paid</span>
+                                                    <span className="font-semibold text-green-600">₹{pricing.total.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <p className="text-sm text-muted-foreground">
+                                        Present this QR code at the venue entrance
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Footer Actions */}
+                            <div className="flex justify-between items-center pt-6 border-t">
+                                {step < 3 ? (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            onClick={step === 1 ? handleClose : handleBack}
+                                            disabled={isProcessing}
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-2" />
+                                            {step === 1 ? 'Cancel' : 'Back'}
+                                        </Button>
+
+                                        <Button
+                                            onClick={step === 1 ? handleNext : handlePayment}
+                                            disabled={isProcessing}
+                                        >
+                                            {isProcessing ? (
+                                                'Processing...'
+                                            ) : step === 1 ? (
+                                                <>
+                                                    Continue
+                                                    <ChevronRight className="h-4 w-4 ml-2" />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <IndianRupee className="h-4 w-4 mr-2" />
+                                                    Pay ₹{pricing.total.toFixed(2)}
+                                                </>
+                                            )}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <div className="w-full space-y-2">
+                                        <Button onClick={handleViewBookings} className="w-full">
+                                            View My Bookings
+                                        </Button>
+                                        <Button onClick={handleClose} variant="outline" className="w-full">
+                                            Close
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </>
+            );
+        };
+
+        export default BookingWizard;
