@@ -122,7 +122,7 @@ const DashboardPage = () => {
                                 <div className="space-y-4">
                                     {bookings.map((booking) => (
                                         <div
-                                            key={booking.id}
+                                            key={booking.booking_reference || booking.id}
                                             className="border border-border rounded-xl overflow-hidden bg-card shadow-lg hover:shadow-xl transition-shadow"
                                         >
                                             <div className="p-6">
@@ -133,9 +133,10 @@ const DashboardPage = () => {
                                                         </h3>
                                                         <div className="space-y-1 text-sm text-muted-foreground">
                                                             <p>Event Date: {formatDate(booking.event_date || new Date())}</p>
-                                                            <p>Booked: {formatDate(booking.created_at || new Date())}</p>
-                                                            <p>Tickets: {booking.quantity || 1}</p>
-                                                            {booking.seat_number && <p>Seat: {booking.seat_number}</p>}
+                                                            <p>Booked: {formatDate(booking.booking_date || new Date())}</p>
+                                                            <p className="font-medium text-foreground">
+                                                                {booking.quantity || 1} Ticket{(booking.quantity || 1) > 1 ? 's' : ''}: {booking.seat_numbers || booking.seats?.join(', ') || booking.seat_number}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col items-end gap-2">
@@ -147,24 +148,29 @@ const DashboardPage = () => {
                                                             {booking.status || 'Pending'}
                                                         </span>
                                                         <p className="text-lg font-bold text-primary">
-                                                            ₹{booking.total_amount || booking.price}
+                                                            ₹{booking.total_amount || (booking.quantity || 1) * 500}
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                {booking.status === 'confirmed' && booking.booking_reference && (
+                                                {booking.status === 'confirmed' && (
                                                     <div className="mt-4 pt-4 border-t border-border flex items-center gap-4">
                                                         <div className="flex-1">
                                                             <p className="text-sm text-muted-foreground mb-1">
                                                                 Booking Reference
                                                             </p>
-                                                            <p className="font-mono font-bold">
-                                                                {booking.booking_reference}
+                                                            <p className="font-mono font-bold text-primary">
+                                                                {booking.booking_reference || `TKT-${booking.id}`}
                                                             </p>
                                                         </div>
                                                         <div className="p-2 bg-white rounded-lg">
                                                             <QRCode
-                                                                value={booking.booking_reference}
+                                                                value={JSON.stringify({
+                                                                    ref: booking.booking_reference || `TKT-${booking.id}`,
+                                                                    event: booking.event_name,
+                                                                    seats: booking.seats || [booking.seat_number],
+                                                                    date: booking.event_date
+                                                                })}
                                                                 size={80}
                                                             />
                                                         </div>

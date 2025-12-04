@@ -46,36 +46,24 @@ const BookingWizard = ({ event, onClose, onComplete }) => {
                 throw new Error('Please log in to book tickets');
             }
 
-            // Book each selected seat via API
-            const bookingPromises = selectedSeats.map(seat =>
-                axios.post(
-                    'http://localhost:5000/api/bookings/book',
-                    { seatId: seat.id, eventId: event.id },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                )
+            // Use bulk booking endpoint for all seats in one transaction
+            const seatIds = selectedSeats.map(seat => seat.id);
+
+            const response = await axios.post(
+                'http://localhost:5000/api/bookings/bulk',
+                {
+                    seatIds,
+                    eventId: event.id,
+                    totalAmount: total
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
             );
-
-            const results = await Promise.allSettled(bookingPromises);
-
-            // Check for any failures
-            const failures = results.filter(r => r.status === 'rejected');
-            const successes = results.filter(r => r.status === 'fulfilled');
-
-            if (failures.length > 0) {
-                const errorMessages = failures.map(f => f.reason?.response?.data?.error || 'Booking failed');
-                if (successes.length > 0) {
-                    toast({
-                        title: `Partial Success`,
-                        description: `${successes.length} seat(s) booked. ${failures.length} failed: ${errorMessages[0]}`,
-                        variant: "warning"
-                    });
-                } else {
-                    throw new Error(errorMessages[0]);
-                }
-            }
 
             setIsProcessing(false);
             setStep(4); // Success step
+
+            // Store booking reference for success screen
+            window.lastBookingReference = response.data.booking_reference;
 
             setTimeout(() => {
                 onComplete();

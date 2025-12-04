@@ -1,9 +1,12 @@
 import express from 'express';
-import { bookSeat, getUserBookings } from '../controllers/bookingController.js';
+import { bookSeat, bookSeats, getUserBookings } from '../controllers/bookingController.js';
 import { simulateConcurrentBooking } from '../controllers/testController.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// POST /api/bookings/bulk - Book multiple seats in one transaction (protected)
+router.post('/bulk', authenticate, bookSeats);
 
 // POST /api/bookings/book?mode=pessimistic|optimistic - Book a seat (protected)
 router.post('/book', authenticate, bookSeat);
