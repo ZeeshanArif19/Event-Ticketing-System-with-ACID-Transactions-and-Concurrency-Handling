@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, MapPin, Users, Clock, Heart } from 'lucide-react';
+import { Calendar, MapPin, Clock, Heart, Ticket } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '../utils/localStorage';
 
 const EventCard = ({ event }) => {
     const [isWishlisted, setIsWishlisted] = useState(isInWishlist(event.id));
+    const [isHovered, setIsHovered] = useState(false);
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             month: 'short',
-            day: 'numeric',
-            year: 'numeric'
+            day: 'numeric'
         });
     };
 
@@ -42,116 +42,125 @@ const EventCard = ({ event }) => {
     };
 
     return (
-        <motion.div
-            whileHover={{ y: -8, scale: 1.02 }}
-            transition={{ duration: 0.3 }}
-            className="group h-full"
+        <Link
+            to={`/events/${event.id}`}
+            className="block group"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
-            <Link to={`/events/${event.id}`} className="block h-full">
-                <div className="relative overflow-hidden rounded-2xl glass-card h-full flex flex-col">
-                    {/* Event Image */}
-                    <div className="relative h-56 md:h-64 overflow-hidden">
-                        {event.image_url ? (
-                            <img
-                                src={event.image_url}
-                                alt={event.name}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-secondary/30">
-                                <Calendar className="w-16 h-16 text-primary/50" />
-                            </div>
-                        )}
-
-                        {/* Gradient Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
-
-                        {/* Category Badge */}
-                        <div className="absolute top-3 left-3">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-lg">
-                                {event.category}
-                            </span>
+            <motion.div
+                whileHover={{ y: -6 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-shadow duration-300"
+            >
+                {/* Image Container */}
+                <div className="relative h-52 overflow-hidden bg-secondary">
+                    {event.image_url ? (
+                        <motion.img
+                            animate={{ scale: isHovered ? 1.08 : 1 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                            src={event.image_url}
+                            alt={event.name}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-purple-500/10">
+                            <Ticket className="w-16 h-16 text-primary/20" />
                         </div>
+                    )}
 
-                        {/* Wishlist Heart Button */}
-                        <button
-                            onClick={handleWishlistToggle}
-                            className="absolute top-3 right-3 p-2.5 rounded-full bg-black/20 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all duration-300 group/heart"
-                            aria-label="Add to wishlist"
-                        >
-                            <Heart
-                                className={`w-5 h-5 transition-all duration-300 ${isWishlisted
-                                        ? 'fill-red-500 text-red-500 scale-110'
-                                        : 'text-white group-hover/heart:scale-110'
-                                    }`}
-                            />
-                        </button>
+                    {/* Gradient overlay on hover */}
+                    <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
 
-                        {/* Sold Out / Low Availability Badge */}
-                        {isSoldOut && (
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                                <span className="text-white text-2xl font-bold tracking-wider border-2 border-white px-6 py-2 rounded-lg transform -rotate-12">SOLD OUT</span>
-                            </div>
-                        )}
-                        {!isSoldOut && isLowAvailability && (
-                            <div className="absolute bottom-3 left-3">
-                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-500/90 text-white backdrop-blur-sm shadow-lg animate-pulse">
-                                    Only {availableSeats} left!
-                                </span>
-                            </div>
-                        )}
+                    {/* Category Badge */}
+                    <div className="absolute top-3 left-3">
+                        <span className="px-3 py-1.5 text-xs font-semibold bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-full text-foreground shadow-sm">
+                            {event.category}
+                        </span>
                     </div>
 
-                    {/* Event Details */}
-                    <div className="p-5 flex flex-col flex-grow">
-                        {/* Event Name */}
-                        <h3 className="text-xl font-bold mb-2 line-clamp-2 group-hover:text-primary transition-colors duration-300 leading-tight">
-                            {event.name}
-                        </h3>
+                    {/* Wishlist Button */}
+                    <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleWishlistToggle}
+                        className="absolute top-3 right-3 p-2.5 rounded-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow"
+                    >
+                        <Heart
+                            className={`w-4 h-4 transition-colors ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-400'}`}
+                        />
+                    </motion.button>
 
-                        {/* Event Description */}
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-grow">
-                            {event.description}
-                        </p>
-
-                        {/* Event Metadata */}
-                        <div className="space-y-2.5 mb-5">
-                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-300">
-                                <Calendar className="w-4 h-4 shrink-0 text-primary" />
-                                <span className="truncate font-medium">{formatDate(event.event_date)}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-300">
-                                <Clock className="w-4 h-4 shrink-0 text-primary" />
-                                <span className="truncate font-medium">{formatTime(event.event_date)}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-300">
-                                <MapPin className="w-4 h-4 shrink-0 text-primary" />
-                                <span className="line-clamp-1 font-medium">{event.location}</span>
-                            </div>
+                    {/* Status badges */}
+                    {isSoldOut && (
+                        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+                            <span className="text-white font-bold text-xl px-6 py-2 border-2 border-white/50 rounded-lg tracking-wide">SOLD OUT</span>
                         </div>
+                    )}
+                    {!isSoldOut && isLowAvailability && (
+                        <motion.span
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="absolute bottom-3 left-3 px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full shadow-lg"
+                        >
+                            🔥 Only {availableSeats} left
+                        </motion.span>
+                    )}
+                </div>
 
-                        {/* Price and CTA */}
-                        <div className="flex items-center justify-between pt-4 border-t border-border/50 mt-auto">
-                            <div>
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Starting from</p>
-                                <p className="text-2xl font-bold text-primary glow-text">
-                                    ₹{event.price}
-                                </p>
-                            </div>
-                            <button
-                                disabled={isSoldOut}
-                                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 shadow-lg ${isSoldOut
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                        : 'bg-primary text-white hover:bg-primary/90 hover:shadow-primary/50 hover:-translate-y-0.5'
-                                    }`}
-                            >
-                                {isSoldOut ? 'Sold Out' : 'Book Now'}
-                            </button>
+                {/* Content */}
+                <div className="p-5">
+                    {/* Event Name */}
+                    <h3 className="font-bold text-lg text-foreground mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                        {event.name}
+                    </h3>
+
+                    {/* Description */}
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
+                        {event.description}
+                    </p>
+
+                    {/* Event Meta */}
+                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-5">
+                        <div className="flex items-center gap-1.5">
+                            <Calendar className="w-4 h-4 text-primary" />
+                            <span className="font-medium">{formatDate(event.event_date)}</span>
                         </div>
+                        <div className="flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-primary" />
+                            <span>{formatTime(event.event_date)}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-5">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span className="truncate">{event.location}</span>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mb-4" />
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">From</p>
+                            <p className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                                ₹{event.price}
+                            </p>
+                        </div>
+                        <motion.span
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`px-5 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 ${isSoldOut
+                                    ? 'bg-muted text-muted-foreground'
+                                    : 'bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40'
+                                }`}
+                        >
+                            {isSoldOut ? 'Sold Out' : 'Book Now'}
+                        </motion.span>
                     </div>
                 </div>
-            </Link>
-        </motion.div>
+            </motion.div>
+        </Link>
     );
 };
 

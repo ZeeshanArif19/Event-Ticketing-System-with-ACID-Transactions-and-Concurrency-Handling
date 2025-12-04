@@ -26,7 +26,6 @@ const CategoryGrid = () => {
                 setCategories(response.data.categories || []);
             } catch (error) {
                 console.error('Error fetching categories:', error);
-                // Fallback to empty array if API fails
                 setCategories([]);
             } finally {
                 setLoading(false);
@@ -38,11 +37,9 @@ const CategoryGrid = () => {
 
     if (loading) {
         return (
-            <div className="py-12 mb-12">
-                <div className="container mx-auto px-4">
-                    <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-                    </div>
+            <div className="py-8 mb-8">
+                <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
                 </div>
             </div>
         );
@@ -52,48 +49,69 @@ const CategoryGrid = () => {
         return null;
     }
 
+    const container = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.08
+            }
+        }
+    };
+
+    const item = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0 }
+    };
+
     return (
-        <div className="py-12 mb-12">
-            <div className="container mx-auto px-4">
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-3xl md:text-4xl font-bold">
-                        Browse by <span className="text-gradient">Category</span>
+        <section className="py-10 mb-8">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                        Browse by Category
                     </h2>
-                    <button className="text-primary hover:text-primary/80 font-semibold text-sm hidden md:block">
-                        View All Categories
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-                    {categories.map((category, index) => {
-                        const Icon = iconMap[category.icon] || Theater;
-                        return (
-                            <motion.button
-                                key={category.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1, duration: 0.4 }}
-                                whileHover={{ y: -5, scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => navigate(`/category/${category.id}`)}
-                                className="group relative p-6 rounded-2xl bg-card border border-border/50 hover:border-primary/30 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 text-center overflow-hidden"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                                <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${category.color} flex items-center justify-center shadow-lg group-hover:shadow-primary/30 group-hover:scale-110 transition-all duration-300`}>
-                                    <Icon className="w-8 h-8 text-white" />
-                                </div>
-
-                                <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">{category.name}</h3>
-                                <p className="text-xs text-muted-foreground line-clamp-1 group-hover:text-muted-foreground/80">
-                                    {category.description}
-                                </p>
-                            </motion.button>
-                        );
-                    })}
+                    <p className="text-muted-foreground text-sm">Find events that match your interests</p>
                 </div>
             </div>
-        </div>
+
+            <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
+            >
+                {categories.map((category) => {
+                    const Icon = iconMap[category.icon] || Theater;
+                    // Use darker gradient for Entertainment to be visible in light mode
+                    let colorClass = category.color || 'from-gray-500 to-gray-600';
+                    if (category.id === 'entertainment') {
+                        colorClass = 'from-indigo-600 to-purple-600';
+                    }
+                    return (
+                        <motion.button
+                            key={category.id}
+                            variants={item}
+                            whileHover={{ y: -4, scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => navigate(`/category/${category.id}`)}
+                            className="group flex flex-col items-center p-5 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
+                        >
+                            {/* Icon with gradient background */}
+                            <div className={`w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br ${colorClass} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
+                                <Icon className="w-8 h-8 text-white" />
+                            </div>
+                            <span className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                                {category.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground mt-1 text-center line-clamp-1">
+                                {category.description}
+                            </span>
+                        </motion.button>
+                    );
+                })}
+            </motion.div>
+        </section>
     );
 };
 
